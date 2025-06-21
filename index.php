@@ -1,14 +1,13 @@
 <!DOCTYPE html>
-<!--
-Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
-Click nbfs://nbhost/SystemFileSystem/Templates/Project/PHP/PHPProject.php to edit this template
--->
 <html>
-    <head>
-        <meta charset="UTF-8">
-        <title></title>
-    </head>
-    <body>
-       hello world
-    </body>
+<head>
+  <title>Meal Planner | Welcome</title>
+</head>
+<body>
+  <h1>Welcome to the Personalized Meal Planner</h1>
+  <p>New here?</p>
+  <form action="register.html" method="get">
+    <button type="submit">Create an Account</button>
+  </form>
+</body>
 </html>
