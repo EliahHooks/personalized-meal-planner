@@ -39,8 +39,21 @@ class db {
                return null;
           }
       }
+      
+      public function insert($sql, $params = []) {
+    try {
+        $this->stmt = $this->pdo->prepare($sql);
+        return $this->stmt->execute($params);
+    } catch (PDOException $e) {
+        echo "Insert Error: " . $e->getMessage();
+        return false;
+    }
+}
+
   
 }
+
+
 
 //define DB settings
 define("DB_HOST", "localhost");

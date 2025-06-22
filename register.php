@@ -1,17 +1,24 @@
 <?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 require 'db.php';
 
-$username = $_POST['username'];
-$email = $_POST['email'];
-$password = password_hash($_POST['password'], PASSWORD_DEFAULT);
+$username = $_POST['username'] ?? '';
+$email = $_POST['email'] ?? '';
+$password = $_POST['password'] ?? '';
+
+if (!$username || !$email || !$password) {
+    die("All fields are required.");
+}
+
+$hashedPassword = password_hash($password, PASSWORD_DEFAULT);
 
 $sql = "INSERT INTO Users (userName, password, email) VALUES (?, ?, ?)";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("sss", $username, $password, $email);
+$result = $_db->insert($sql, [$username, $hashedPassword, $email]);
 
-if ($stmt->execute()) {
-    echo "User registered!";
+if ($result) {
+    echo "✅ User registered!";
 } else {
-    echo "Error: " . $conn->error;
+    echo "❌ Registration failed.";
 }
 ?>
