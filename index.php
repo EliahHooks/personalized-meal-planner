@@ -13,6 +13,11 @@
     <form action="register.html" method="get">
       <button type="submit">Create an Account</button>
     </form>
+    
+    <p>Already have an account?</p>
+    <form action="signIn.php" method="get">
+      <button type="submit">Sign In</button>
+    </form>
   </div>
 </body>
 </html>
