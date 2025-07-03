@@ -1,6 +1,8 @@
 <?php
 session_start();
 
+define('BASE_URL', '/personalized-meal-planner/');
+
 // Block access if not logged in
 if (!isset($_SESSION['userID'])) {
     header('Location: signIn.php');
@@ -30,7 +32,7 @@ $weight = $_SESSION['weight'];
     <p>This is your meal planner dashboard. More features coming soon!</p>
 
     <?php if ($_SESSION['role'] === 'admin'): ?>
-        <a href="admin/dashboard.php"><button>Go to Admin Panel</button></a>
+        <a href="<?php echo BASE_URL; ?>admin/dashboard.php"><button>Go to Admin Panel</button></a>
     <?php endif; ?>
 
     <br><br>
