@@ -10,12 +10,12 @@
   <div class="container">
     <h1>Welcome to the Personalized Meal Planner</h1>
     <p>New here?</p>
-    <form action="register.html" method="get">
+    <form action="./pages/register.php" method="get">
       <button type="submit">Create an Account</button>
     </form>
     
     <p>Already have an account?</p>
-    <form action="signIn.php" method="get">
+    <form action="./pages/signIn.php" method="get">
       <button type="submit">Sign In</button>
     </form>
   </div>
