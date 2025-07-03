@@ -1,6 +1,6 @@
 <?php
 session_start();
-
+define('BASE_URL', '/personalized-meal-planner/');
 // Restrict access to admins only
 if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'admin') {
     header('Location: ../signIn.php');
@@ -37,13 +37,13 @@ if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'admin') {
     <p>Use the links below to manage the application.</p>
 
     <div class="admin-links">
-        <a href="manageusers.php">👤 Manage Users</a>
-        <a href="moderateContent.php">📝 Moderate Content</a>
-        <a href="dataEntry.php">📦 Admin Data Entry</a>
+        <a href="<?php echo BASE_URL; ?>admin/manageUsers.php">👤 Manage Users</a>
+        <a href="<?php echo BASE_URL; ?>admin/moderateContent.php">📝 Moderate Content</a>
+        <a href="<?php echo BASE_URL; ?>admin/adminDataEntry.php">📦 Admin Data Entry</a>
     </div>
 
     <br><br>
-    <a href="../mealplanner.php"><button>Back to User Dashboard</button></a>
+    <a href="<?php echo BASE_URL; ?>pages/mealPlanner.php"><button>Back to User Dashboard</button></a>
 </div>
 </body>
 </html>
