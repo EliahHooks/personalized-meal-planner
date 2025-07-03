@@ -22,6 +22,17 @@ class db {
     }     
 }
 
+public function selectOne($sql, $params = []) {
+    try {
+        $this->stmt = $this->pdo->prepare($sql);
+        $this->stmt->execute($params);
+        return $this->stmt->fetch(); // fetches one row
+    } catch (PDOException $e) {
+        echo "SelectOne Error: " . $e->getMessage();
+        return null;
+    }
+}
+
 // close connection
       function __destruct() {
           if ($this->stmt !== null) {$this->stmt = null;}
