@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once '../db.php';
+require_once __DIR__ . '/../database/db.php';
 if ($_SESSION['role'] !== 'admin') {
     header("Location: ../signIn.php");
     exit();
