@@ -1,5 +1,6 @@
-DROP TABLE IF EXISTS Users;
+DROP TABLE IF EXISTS UserMeals;
 DROP TABLE IF EXISTS Foods;
+DROP TABLE IF EXISTS Users;
 
 CREATE TABLE Users 
 (
@@ -34,4 +35,23 @@ CREATE TABLE Foods (
 
   INDEX idx_category (category),
   INDEX idx_nutrition (protein_grams, sodium_mg, sugar_grams)
+);
+
+CREATE TABLE UserMeals ( 
+  id INT PRIMARY KEY AUTO_INCREMENT,  
+
+  userID INT NOT NULL,  
+  mealName VARCHAR(50),  
+  mealType ENUM('breakfast', 'lunch', 'dinner') NOT NULL,  
+
+  entreeID INT DEFAULT NULL,  
+  side1ID INT DEFAULT NULL,  
+  side2ID INT DEFAULT NULL,  
+  drinkID INT DEFAULT NULL,  
+
+  FOREIGN KEY (userID) REFERENCES Users(userID) ON DELETE CASCADE,  
+  FOREIGN KEY (entreeID) REFERENCES Foods(id) ON DELETE SET NULL,  
+  FOREIGN KEY (side1ID) REFERENCES Foods(id) ON DELETE SET NULL,  
+  FOREIGN KEY (side2ID) REFERENCES Foods(id) ON DELETE SET NULL,  
+  FOREIGN KEY (drinkID) REFERENCES Foods(id) ON DELETE SET NULL
 );
