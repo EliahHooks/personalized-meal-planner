@@ -1,6 +1,8 @@
 <?php
 session_start();
 require_once __DIR__ . '/../database/db.php';
+
+// Redirect non-admin users
 if ($_SESSION['role'] !== 'admin') {
     header("Location: ../signIn.php");
     exit();
@@ -17,6 +19,18 @@ $users = $_db->select("SELECT * FROM Users");
 <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f2f2f2; padding: 40px;">
     <h1 style="text-align: center; color: #333;">Manage Users</h1>
 
+    <!-- Add User Button -->
+    <div style="text-align: center; margin-bottom: 20px;">
+        <a href="addUser.php"
+           style="display: inline-block; background: #007bff; color: white; padding: 10px 25px; border-radius: 6px; font-size: 1rem; font-weight: 500; text-decoration: none; box-shadow: 0 4px 10px rgba(0, 123, 255, 0.3); transition: all 0.3s ease;"
+           onmouseover="this.style.boxShadow='0 8px 20px rgba(0, 123, 255, 0.4)'; this.style.transform='translateY(-2px)'"
+           onmouseout="this.style.boxShadow='0 4px 10px rgba(0, 123, 255, 0.3)'; this.style.transform='translateY(0)'"
+        >
+            ➕ Add User
+        </a>
+    </div>
+
+    <!-- User Table -->
     <table border="1" cellpadding="10" cellspacing="0" style="margin: auto; background: #fff; border-collapse: collapse; width: 80%;">
         <tr style="background-color: #ddd;">
             <th>ID</th>
@@ -39,8 +53,9 @@ $users = $_db->select("SELECT * FROM Users");
         <?php endforeach; ?>
     </table>
 
+    <!-- Back Button -->
     <div style="text-align: center; margin-top: 30px;">
-        <a href="dashboard.php" 
+        <a href="dashboard.php"
            style="display: inline-block; background: green; color: white; padding: 12px 30px; border-radius: 8px; font-size: 1rem; font-weight: 500; text-decoration: none; box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3); transition: all 0.3s ease;"
            onmouseover="this.style.boxShadow='0 8px 25px rgba(40, 167, 69, 0.4)'; this.style.transform='translateY(-2px)'"
            onmouseout="this.style.boxShadow='0 4px 15px rgba(40, 167, 69, 0.3)'; this.style.transform='translateY(0)'"
