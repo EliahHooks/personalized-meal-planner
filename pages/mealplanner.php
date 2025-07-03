@@ -20,7 +20,7 @@ $weight = $_SESSION['weight'];
 <head>
     <meta charset="UTF-8">
     <title>Meal Planner</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="../style.css"> <!-- Adjusted if style.css is one level up -->
 </head>
 <body>
 <div class="container">
@@ -32,11 +32,16 @@ $weight = $_SESSION['weight'];
     <p>This is your meal planner dashboard. More features coming soon!</p>
 
     <?php if ($_SESSION['role'] === 'admin'): ?>
-        <a href="<?php echo BASE_URL; ?>admin/dashboard.php"><button>Go to Admin Panel</button></a>
+        <a href="<?php echo BASE_URL; ?>admin/dashboard.php">
+            <button class="btn-admin">Go to Admin Panel</button>
+        </a>
     <?php endif; ?>
 
     <br><br>
-    <a href="logout.php"><button>Logout</button></a>
+
+    <a href="logout.php">
+        <button class="btn-logout">Logout</button>
+    </a>
 </div>
 </body>
 </html>
