@@ -2,8 +2,9 @@
 session_start();
 ob_start();
 error_reporting(E_ALL);
-ini_set('display_errors', 0);
-require_once 'db.php';
+ini_set('display_errors', 1);
+require_once __DIR__ . '/../database/db.php';
+
 
 $errorMessage = '';
 
@@ -32,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ob_end_clean();
             
             // Redirect to meal planner
-            header('Location: mealplanner.php');
+            header('Location: ./mealplanner.php');
             exit();
         } else {
             $errorMessage = "Invalid username or password.";
@@ -41,7 +42,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Clear any captured output from database errors
-ob_end_clean();
+if (ob_get_length()) {
+    ob_end_clean();
+}
 ?>
 
 <!DOCTYPE html>
@@ -50,7 +53,7 @@ ob_end_clean();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sign In | Meal Planner</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/personalized-meal-planner/style.css">
     <style>
         .form-group {
             margin-bottom: 1.5rem;
@@ -112,7 +115,7 @@ ob_end_clean();
             </div>
         <?php endif; ?>
         
-        <form method="POST" action="signIn.php">
+        <form method="POST" action="">
             <div class="form-group">
                 <label for="username">Username:</label>
                 <input type="text" id="username" name="username" value="<?php echo htmlspecialchars($_POST['username'] ?? ''); ?>" required>
@@ -127,7 +130,7 @@ ob_end_clean();
         </form>
         
         <div class="back-link">
-            <a href="index.php">← Back to Home</a>
+            <a href="../index.php">← Back to Home</a>
         </div>
     </div>
 </body>
