@@ -1,21 +1,26 @@
 <?php
 require_once __DIR__ . '/../database/db.php';
 session_start();
-if ($_SESSION['role'] !== 'admin') {
+if ($_SESSION['role'] !== 'admin') 
+{
     header("Location: ../signIn.php");
     exit();
 }
 
 $error = '';
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') 
+{
     $username = trim($_POST['username'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
     $role = $_POST['role'] ?? 'user';
 
-    if (!$username || !$email || !$password) {
+    if (!$username || !$email || !$password) 
+    {
         $error = "All fields are required.";
-    } else {
+    } 
+    else 
+    {
         $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
         $_db->insert("INSERT INTO Users (userName, email, password, role) VALUES (?, ?, ?, ?)", [
             $username, $email, $hashedPassword, $role
