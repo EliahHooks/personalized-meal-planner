@@ -1,4 +1,5 @@
 DROP TABLE IF EXISTS UserMeals;
+DROP TABLE IF EXISTS UserLog;
 DROP TABLE IF EXISTS Foods;
 DROP TABLE IF EXISTS Users;
 
@@ -11,6 +12,7 @@ CREATE TABLE Users
     weight DOUBLE,
     email VARCHAR(255) UNIQUE,
     role ENUM('user', 'admin') DEFAULT 'user',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (userID)
 );
 
