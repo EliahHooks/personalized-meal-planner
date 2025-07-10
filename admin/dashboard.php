@@ -40,6 +40,7 @@ if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'admin') {
         <a href="<?php echo BASE_URL; ?>admin/manageUsers.php">👤 Manage Users</a>
         <a href="<?php echo BASE_URL; ?>admin/moderateContent.php">📝 Moderate Content</a>
         <a href="<?php echo BASE_URL; ?>admin/adminDataEntry.php">📦 Admin Data Entry</a>
+        <a href="<?php echo BASE_URL; ?>admin/analytics.php">📊 Admin Analytics Dashboard</a>
     </div>
 
     <br><br>
