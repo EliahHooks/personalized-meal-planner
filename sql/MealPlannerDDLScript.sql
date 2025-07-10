@@ -55,3 +55,26 @@ CREATE TABLE UserMeals (
   FOREIGN KEY (side2ID) REFERENCES Foods(id) ON DELETE SET NULL,  
   FOREIGN KEY (drinkID) REFERENCES Foods(id) ON DELETE SET NULL
 );
+
+CREATE TABLE UserLog 
+(
+    logID INT AUTO_INCREMENT PRIMARY KEY,
+    userID INT,                           
+    userName VARCHAR(20),                
+    actionType ENUM(
+        'register', 
+        'login', 
+        'logout', 
+        'create_meal', 
+        'edit_meal', 
+        'delete_meal', 
+        'complete_meal',
+        'update_profile', 
+        'admin_action', 
+        'other'
+    ) NOT NULL,
+
+    details TEXT,
+    actionDate DATETIME DEFAULT NOW(),
+    FOREIGN KEY (userID) REFERENCES Users(userID) ON DELETE CASCADE
+);
