@@ -1,4 +1,5 @@
 DROP TABLE IF EXISTS UserMeals;
+DROP TABLE IF EXISTS UserPreferences;
 DROP TABLE IF EXISTS UserLog;
 DROP TABLE IF EXISTS Foods;
 DROP TABLE IF EXISTS Users;
@@ -10,10 +11,25 @@ CREATE TABLE Users
     password VARCHAR(255) NOT NULL,
     height DOUBLE,
     weight DOUBLE,
+    age INT,
     email VARCHAR(255) UNIQUE,
     role ENUM('user', 'admin') DEFAULT 'user',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (userID)
+);
+
+CREATE TABLE UserPreferences (
+    preference_id INT PRIMARY KEY AUTO_INCREMENT,
+    userID INT NOT NULL UNIQUE,
+    activity_level ENUM('low', 'medium', 'high'),
+    dietaryStyle ENUM('none', 'vegetarian', 'vegan', 'keto', 'pescatarian') DEFAULT 'none',  
+    goal ENUM('lose', 'gain', 'maintain'),
+    dietary_preference VARCHAR(50),
+    allergies TEXT,
+    dislikes TEXT,
+    meals_per_day INT DEFAULT 3,
+    calorie_goal INT DEFAULT 2000,
+    FOREIGN KEY (userID) REFERENCES Users(UserID) ON DELETE CASCADE
 );
 
 CREATE TABLE Foods (
@@ -45,6 +61,8 @@ CREATE TABLE UserMeals (
   userID INT NOT NULL,  
   mealName VARCHAR(50),  
   mealType ENUM('breakfast', 'lunch', 'dinner') NOT NULL,  
+  planDate DATE,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 
   entreeID INT DEFAULT NULL,  
   side1ID INT DEFAULT NULL,  
