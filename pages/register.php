@@ -1,18 +1,18 @@
 <?php
-// Start output buffering and include DB
-ob_start();
 session_start();
 require_once __DIR__ . '/../database/db.php';
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
+// Optional: remove this unless you're actually using output buffering for layout/redirect control
+// ob_start();
+
 $result = false;
 $errorMessage = '';
 
-// Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = $_POST['username'] ?? '';
-    $email = $_POST['email'] ?? '';
+    $username = trim($_POST['username'] ?? '');
+    $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
 
     if (!$username || !$email || !$password) {
@@ -22,12 +22,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $sql = "INSERT INTO Users (userName, password, email) VALUES (?, ?, ?)";
         $result = $_db->insert($sql, [$username, $hashedPassword, $email]);
 
-        if (!$result) {
+        if ($result) {
+            $userID = $_db->lastInsertId();
+            $user = $_db->select("SELECT * FROM Users WHERE userID = ?", [$userID]);
+
+            if ($user) {
+                $user = $user[0];
+                $_SESSION['userID'] = $user['userID'];
+                $_SESSION['userName'] = $user['userName'];
+                $_SESSION['email'] = $user['email'];
+                $_SESSION['height'] = $user['height'];
+                $_SESSION['weight'] = $user['weight'];
+                $_SESSION['role'] = $user['role'];
+            }
+
+            header("Location: preferences.php");
+            exit;
+        } else {
             $errorMessage = "Username or email already exists.";
         }
     }
-
-    ob_end_clean(); // clear output buffering if needed
 }
 ?>
 
