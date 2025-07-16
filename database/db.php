@@ -22,7 +22,7 @@ class db {
     }     
 }
 
-public function selectOne($sql, $params = []) {
+    public function selectOne($sql, $params = []) {
     try {
         $this->stmt = $this->pdo->prepare($sql);
         $this->stmt->execute($params);
@@ -32,6 +32,10 @@ public function selectOne($sql, $params = []) {
         return null;
     }
 }
+
+    public function lastInsertId() {
+        return $this->pdo->lastInsertId();
+    }
 
 // close connection
       function __destruct() {
