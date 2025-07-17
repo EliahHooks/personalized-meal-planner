@@ -139,3 +139,17 @@ INSERT INTO UserMeals (userID, mealName, mealType, entreeID, side1ID, side2ID, d
 (23, 'Grain Bowl Lunch', 'lunch', 1, 5, 3, 4),
 (24, 'Full Dinner', 'dinner', 7, 2, 3, 6),
 (25, 'Start Fresh Breakfast', 'breakfast', 3, 4, NULL, 5);
+
+
+-- Insert some sample weekly plan data
+INSERT INTO WeeklyPlan (userID, meal_id, day_of_week, meal_type) VALUES
+(1, 1, 'Monday', 'breakfast'),
+(1, 2, 'Monday', 'lunch'),
+(1, 3, 'Monday', 'dinner'),
+(2, 4, 'Tuesday', 'breakfast'),
+(2, 5, 'Tuesday', 'lunch'),
+(3, 6, 'Wednesday', 'breakfast'),
+(3, 7, 'Wednesday', 'dinner'),
+(4, 8, 'Thursday', 'lunch'),
+(5, 9, 'Friday', 'breakfast'),
+(5, 10, 'Friday', 'dinner');
