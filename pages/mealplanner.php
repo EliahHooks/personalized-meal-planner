@@ -250,6 +250,7 @@ $userPreferences = $_db->selectOne("SELECT * FROM UserPreferences WHERE userID =
     
     <h2 class="section-title">Your Saved Meals</h2>
     
+    
     <?php if ($userMeals): ?>
         <div class="meals-grid">
             <?php foreach ($userMeals as $meal): ?>
@@ -292,12 +293,159 @@ $userPreferences = $_db->selectOne("SELECT * FROM UserPreferences WHERE userID =
         <div class="no-meals"><p>🍽️ No meals saved yet. Add your first meal above!</p></div>
     <?php endif; ?>
     
-    <div class="admin-link">
+</div>
+</body>
+</html>
+
+
+<?php
+// Weekly meal plan assignment logic
+// Handle weekly meal plan actions
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if ($_POST['action'] === 'assign_meal') {
+        $mealID = $_POST['mealID'] ?? '';
+        $day = $_POST['day'] ?? '';
+        $mealType = $_POST['mealType'] ?? '';
+
+        if (!$mealID || !$day || !$mealType) {
+            $error = "Please select a meal, day, and meal type.";
+        } else {
+            $mealCheck = $_db->selectOne("SELECT id FROM UserMeals WHERE id = ? AND userID = ?", [$mealID, $userID]);
+            if ($mealCheck) {
+                $_db->insert("DELETE FROM WeeklyPlan WHERE userID = ? AND day_of_week = ? AND meal_type = ?", [$userID, $day, $mealType]);
+                $result = $_db->insert("INSERT INTO WeeklyPlan (userID, meal_id, day_of_week, meal_type) VALUES (?, ?, ?, ?)", [$userID, $mealID, $day, $mealType]);
+                $message = $result ? "Meal assigned successfully!" : "Error assigning meal.";
+            } else {
+                $error = "Invalid meal selection.";
+            }
+        }
+    } elseif ($_POST['action'] === 'remove_meal') {
+        $planID = $_POST['planID'] ?? '';
+        if ($planID) {
+            $result = $_db->insert("DELETE FROM WeeklyPlan WHERE id = ? AND userID = ?", [$planID, $userID]);
+            $message = $result ? "Meal removed from plan!" : "Error removing meal.";
+        }
+    }
+}
+
+// Get user's saved meals
+$userMeals = $_db->select("SELECT * FROM UserMeals WHERE userID = ? ORDER BY mealType, mealName", [$userID]);
+
+// Get weekly plan
+$weeklyPlan = $_db->select("
+    SELECT wp.*, um.mealName, um.mealType as original_meal_type,
+           e.name as entree_name, e.calories_per_serving as entree_calories,
+           s1.name as side1_name, s1.calories_per_serving as side1_calories,
+           s2.name as side2_name, s2.calories_per_serving as side2_calories,
+           d.name as drink_name, d.calories_per_serving as drink_calories
+    FROM WeeklyPlan wp
+    JOIN UserMeals um ON wp.meal_id = um.id
+    LEFT JOIN Foods e ON um.entreeID = e.id
+    LEFT JOIN Foods s1 ON um.side1ID = s1.id
+    LEFT JOIN Foods s2 ON um.side2ID = s2.id
+    LEFT JOIN Foods d ON um.drinkID = d.id
+    WHERE wp.userID = ?
+    ORDER BY wp.day_of_week, wp.meal_type
+", [$userID]);
+
+$plan = [];
+$days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+$mealTypes = ['breakfast', 'lunch', 'dinner'];
+foreach ($days as $day) {
+    $plan[$day] = [];
+    foreach ($mealTypes as $type) {
+        $plan[$day][$type] = null;
+    }
+}
+foreach ($weeklyPlan as $item) {
+    $plan[$item['day_of_week']][$item['meal_type']] = $item;
+}
+?>
+
+
+
+<!-- Weekly Calendar UI -->
+<div style="margin-top: 50px;">
+    <h2 style="color: #333; margin-bottom: 20px;">📅 Weekly Meal Plan</h2>
+
+    <?php if ($message): ?><div class="message success"><?= $message ?></div><?php endif; ?>
+    <?php if ($error): ?><div class="message error"><?= $error ?></div><?php endif; ?>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+        <?php foreach ($days as $day): ?>
+            <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 10px; padding: 15px;">
+                <h4 style="text-align: center; margin-bottom: 10px;"><?= $day ?></h4>
+                <?php foreach ($mealTypes as $mealType): ?>
+                    <div style="margin-bottom: 15px;">
+                        <strong><?= ucfirst($mealType) ?>:</strong><br>
+                        <?php if ($plan[$day][$mealType]): ?>
+                            <?php 
+                            $meal = $plan[$day][$mealType];
+                            $calories = ($meal['entree_calories'] ?? 0) + ($meal['side1_calories'] ?? 0) + 
+                                       ($meal['side2_calories'] ?? 0) + ($meal['drink_calories'] ?? 0);
+                            ?>
+                            <div style="padding: 10px; background: #e2e6ea; border-radius: 5px; margin-top: 5px;">
+                                <?= htmlspecialchars($meal['mealName']) ?> (<?= $calories ?> cal)
+                                <form method="POST" style="display:inline;">
+                                    <input type="hidden" name="action" value="remove_meal">
+                                    <input type="hidden" name="planID" value="<?= $meal['id'] ?>">
+                                    <button type="submit" style="float:right; background:#dc3545; color:#fff; border:none; padding: 2px 8px; border-radius:5px;" onclick="return confirm('Remove this meal?')">×</button>
+                                </form>
+                            </div>
+                        <?php else: ?>
+                            <em style="color:#888;">No meal assigned</em>
+                        <?php endif; ?>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        <?php endforeach; ?>
+    </div>
+
+    <hr style="margin: 40px 0;">
+
+    <h3>🍽️ Assign Meal to Day</h3>
+    <?php if ($userMeals): ?>
+        <form method="POST" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; align-items: end;">
+            <input type="hidden" name="action" value="assign_meal">
+            <div>
+                <label>Meal</label>
+                <select name="mealID" required style="width:100%; padding:10px;">
+                    <option value="">Select a meal...</option>
+                    <?php foreach ($userMeals as $meal): ?>
+                        <option value="<?= $meal['id'] ?>"><?= htmlspecialchars($meal['mealName']) ?> (<?= ucfirst($meal['mealType']) ?>)</option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div>
+                <label>Day</label>
+                <select name="day" required style="width:100%; padding:10px;">
+                    <option value="">Select a day...</option>
+                    <?php foreach ($days as $day): ?>
+                        <option value="<?= $day ?>"><?= $day ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div>
+                <label>Meal Time</label>
+                <select name="mealType" required style="width:100%; padding:10px;">
+                    <option value="">Select time...</option>
+                    <option value="breakfast">Breakfast</option>
+                    <option value="lunch">Lunch</option>
+                    <option value="dinner">Dinner</option>
+                </select>
+            </div>
+            <div>
+                <button type="submit" style="padding:10px 20px; background:#28a745; color:white; border:none; border-radius:5px;">Assign</button>
+            </div>
+        </form>
+    <?php else: ?>
+        <p>No meals found. <a href="mealPlanner.php">Create some meals</a> first.</p>
+    <?php endif; ?>
+</div>
+
+ <div class="admin-link">
         <?php if ($_SESSION['role'] === 'admin'): ?>
             <a href="<?= BASE_URL ?>admin/dashboard.php">Go to Admin Panel</a>
         <?php endif; ?>
         <a href="logout.php">Logout</a>
     </div>
-</div>
-</body>
-</html>
