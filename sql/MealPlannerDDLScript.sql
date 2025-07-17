@@ -1,3 +1,4 @@
+DROP TABLE IF EXISTS WeeklyPlan;
 DROP TABLE IF EXISTS UserMeals;
 DROP TABLE IF EXISTS UserPreferences;
 DROP TABLE IF EXISTS UserLog;
@@ -97,4 +98,23 @@ CREATE TABLE UserLog
     details TEXT,
     actionDate DATETIME DEFAULT NOW(),
     FOREIGN KEY (userID) REFERENCES Users(userID) ON DELETE CASCADE
+);
+
+-- WeeklyPlan table for storing weekly meal assignments
+CREATE TABLE WeeklyPlan (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    userID INT NOT NULL,
+    meal_id INT NOT NULL,
+    day_of_week ENUM('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday') NOT NULL,
+    meal_type ENUM('breakfast', 'lunch', 'dinner') NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (userID) REFERENCES Users(userID) ON DELETE CASCADE,
+    FOREIGN KEY (meal_id) REFERENCES UserMeals(id) ON DELETE CASCADE,
+    
+    -- Ensure only one meal per user per day per meal type
+    UNIQUE KEY unique_user_day_meal (userID, day_of_week, meal_type),
+    
+    INDEX idx_user_day (userID, day_of_week),
+    INDEX idx_meal_type (meal_type)
 );
