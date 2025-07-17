@@ -39,6 +39,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $userMeals = $_db->select("SELECT um.*, e.name as entree_name, e.calories_per_serving as entree_calories, s1.name as side1_name, s1.calories_per_serving as side1_calories, s2.name as side2_name, s2.calories_per_serving as side2_calories, d.name as drink_name, d.calories_per_serving as drink_calories FROM UserMeals um LEFT JOIN Foods e ON um.entreeID = e.id LEFT JOIN Foods s1 ON um.side1ID = s1.id LEFT JOIN Foods s2 ON um.side2ID = s2.id LEFT JOIN Foods d ON um.drinkID = d.id WHERE um.userID = ? ORDER BY um.mealType, um.mealName", [$userID]);
 $nonBeverageFoods = $_db->select("SELECT * FROM Foods WHERE category != 'beverage' ORDER BY category, name");
 $beverages = $_db->select("SELECT * FROM Foods WHERE category = 'beverage' ORDER BY name");
+
+// Get user preferences
+$userPreferences = $_db->selectOne("SELECT * FROM UserPreferences WHERE userID = ?", [$userID]);
+
 ?>
 
 <!DOCTYPE html>
@@ -59,6 +63,8 @@ $beverages = $_db->select("SELECT * FROM Foods WHERE category = 'beverage' ORDER
         .btn { padding: 12px 24px; border: none; border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s; }
         .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; width: 100%; }
         .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3); }
+        .btn-secondary { background: #6c757d; color: white; padding: 10px 20px; margin-left: 10px; }
+        .btn-secondary:hover { background: #5a6268; }
         .btn-danger { background: #dc3545; color: white; font-size: 0.85rem; padding: 8px 15px; }
         .btn-danger:hover { background: #c82333; }
         .meals-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 25px; }
@@ -84,7 +90,21 @@ $beverages = $_db->select("SELECT * FROM Foods WHERE category = 'beverage' ORDER
         .admin-link a { background: #667eea; color: white; padding: 12px 25px; border-radius: 10px; text-decoration: none; margin: 0 10px; transition: all 0.3s; }
         .admin-link a:hover { background: #5a67d8; transform: translateY(-2px); }
         .no-meals { text-align: center; padding: 40px; color: #666; font-size: 1.2rem; background: rgba(255, 255, 255, 0.8); border-radius: 15px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1); }
-        @media (max-width: 768px) { .form-row, .meals-grid { grid-template-columns: 1fr; } .container { padding: 10px; } }
+        
+        /* Preferences styles */
+        .preferences-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .preferences-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
+        .preference-item { background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(10px); border-radius: 10px; padding: 15px; text-align: center; }
+        .preference-item h4 { margin-bottom: 8px; font-size: 0.9rem; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.5px; }
+        .preference-item p { font-size: 1.1rem; font-weight: 600; }
+        .preference-icon { font-size: 1.5rem; margin-bottom: 10px; }
+        .no-preferences { text-align: center; padding: 20px; background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+        .no-preferences a { color: #fff; text-decoration: underline; }
+        
+        @media (max-width: 768px) { 
+            .form-row, .meals-grid, .preferences-grid { grid-template-columns: 1fr; } 
+            .container { padding: 10px; } 
+        }
     </style>
 </head>
 <body>
@@ -94,6 +114,71 @@ $beverages = $_db->select("SELECT * FROM Foods WHERE category = 'beverage' ORDER
         <p><strong>Email:</strong> <?= htmlspecialchars($_SESSION['email']) ?></p>
         <?php if ($_SESSION['height'] && $_SESSION['weight']): ?>
             <p><strong>Height:</strong> <?= $_SESSION['height'] ?> inches | <strong>Weight:</strong> <?= $_SESSION['weight'] ?> lbs</p>
+        <?php endif; ?>
+    </div>
+
+    <!-- User Preferences Section -->
+    <div class="card preferences-card">
+        <h3>⚙️ Your Preferences</h3>
+        <?php if ($userPreferences): ?>
+            <div class="preferences-grid">
+                <div class="preference-item">
+                    <div class="preference-icon">🏃‍♂️</div>
+                    <h4>Activity Level</h4>
+                    <p><?= ucfirst($userPreferences['activity_level'] ?? 'Not set') ?></p>
+                </div>
+                <div class="preference-item">
+                    <div class="preference-icon">🥗</div>
+                    <h4>Dietary Style</h4>
+                    <p><?= ucfirst($userPreferences['dietaryStyle'] ?? 'None') ?></p>
+                </div>
+                <div class="preference-item">
+                    <div class="preference-icon">🎯</div>
+                    <h4>Goal</h4>
+                    <p><?= ucfirst($userPreferences['goal'] ?? 'Not set') ?></p>
+                </div>
+                <div class="preference-item">
+                    <div class="preference-icon">🍽️</div>
+                    <h4>Meals Per Day</h4>
+                    <p><?= $userPreferences['meals_per_day'] ?? 3 ?></p>
+                </div>
+                <div class="preference-item">
+                    <div class="preference-icon">🔥</div>
+                    <h4>Daily Calorie Goal</h4>
+                    <p><?= number_format($userPreferences['calorie_goal'] ?? 2000) ?></p>
+                </div>
+                <?php if ($userPreferences['dietary_preference']): ?>
+                <div class="preference-item">
+                    <div class="preference-icon">🍴</div>
+                    <h4>Dietary Preference</h4>
+                    <p><?= htmlspecialchars($userPreferences['dietary_preference']) ?></p>
+                </div>
+                <?php endif; ?>
+            </div>
+            
+            <?php if ($userPreferences['allergies'] || $userPreferences['dislikes']): ?>
+            <div style="margin-top: 20px;">
+                <?php if ($userPreferences['allergies']): ?>
+                <div style="margin-bottom: 10px;">
+                    <strong>🚫 Allergies:</strong> <?= htmlspecialchars($userPreferences['allergies']) ?>
+                </div>
+                <?php endif; ?>
+                <?php if ($userPreferences['dislikes']): ?>
+                <div>
+                    <strong>❌ Dislikes:</strong> <?= htmlspecialchars($userPreferences['dislikes']) ?>
+                </div>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
+            
+            <div style="text-align: center; margin-top: 20px;">
+                <a href="preferences.php" class="btn btn-secondary">Update Preferences</a>
+            </div>
+        <?php else: ?>
+            <div class="no-preferences">
+                <p>🔧 No preferences set yet. Set your preferences to get personalized meal recommendations!</p>
+                <a href="preferences.php">Set Your Preferences</a>
+            </div>
         <?php endif; ?>
     </div>
 
