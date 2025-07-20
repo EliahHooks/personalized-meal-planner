@@ -1,6 +1,11 @@
-<?php
+<?php 
+
 session_start();
 require_once __DIR__ . '/../database/db.php';
+
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 
 define('BASE_URL', '/personalized-meal-planner/');
 
@@ -12,28 +17,257 @@ if (!isset($_SESSION['userID'])) {
 $userID = $_SESSION['userID'];
 $message = $error = '';
 
-// Handle form submissions
+
+
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if ($_POST['action'] === 'add_meal') {
+    $action = $_POST['action'] ?? '';
+
+    if ($action === 'add_meal') {
         $mealName = trim($_POST['mealName'] ?? '');
         $mealType = $_POST['mealType'] ?? '';
         $entreeID = $_POST['entreeID'] ?: null;
         $side1ID = $_POST['side1ID'] ?: null;
         $side2ID = $_POST['side2ID'] ?: null;
         $drinkID = $_POST['drinkID'] ?: null;
-        
+
         if (!$mealName || !$mealType) {
             $error = "Meal name and type are required.";
         } else {
-            $result = $_db->insert("INSERT INTO UserMeals (userID, mealName, mealType, entreeID, side1ID, side2ID, drinkID) VALUES (?, ?, ?, ?, ?, ?, ?)", 
-                                 [$userID, $mealName, $mealType, $entreeID, $side1ID, $side2ID, $drinkID]);
+            $result = $_db->insert(
+                "INSERT INTO UserMeals (userID, mealName, mealType, entreeID, side1ID, side2ID, drinkID) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                [$userID, $mealName, $mealType, $entreeID, $side1ID, $side2ID, $drinkID]
+            );
             $message = $result ? "Meal added successfully!" : "Error adding meal.";
         }
-    } elseif ($_POST['action'] === 'delete_meal' && $_POST['mealID']) {
+    } elseif ($action === 'delete_meal' && !empty($_POST['mealID'])) {
         $result = $_db->insert("DELETE FROM UserMeals WHERE id = ? AND userID = ?", [$_POST['mealID'], $userID]);
         $message = $result ? "Meal deleted successfully!" : "Error deleting meal.";
+    } elseif ($action === 'assign_meal') {
+        $mealID = $_POST['mealID'] ?? '';
+        $day = $_POST['day'] ?? '';
+        $mealType = $_POST['mealType'] ?? '';
+
+        if (!$mealID || !$day || !$mealType) {
+            $error = "Please select a meal, day, and meal type.";
+        } else {
+            $mealCheck = $_db->selectOne("SELECT id FROM UserMeals WHERE id = ? AND userID = ?", [$mealID, $userID]);
+            if ($mealCheck) {
+                $_db->insert("DELETE FROM WeeklyPlan WHERE userID = ? AND day_of_week = ? AND meal_type = ?", [$userID, $day, $mealType]);
+                $result = $_db->insert("INSERT INTO WeeklyPlan (userID, meal_id, day_of_week, meal_type) VALUES (?, ?, ?, ?)", [$userID, $mealID, $day, $mealType]);
+                $message = $result ? "Meal assigned successfully!" : "Error assigning meal.";
+            } else {
+                $error = "Invalid meal selection.";
+            }
+        }
+    } elseif ($action === 'remove_meal') {
+        $planID = $_POST['planID'] ?? '';
+        if ($planID) {
+            $result = $_db->insert("DELETE FROM WeeklyPlan WHERE id = ? AND userID = ?", [$planID, $userID]);
+            $message = $result ? "Meal removed from plan!" : "Error removing meal.";
+        }
+    } elseif ($action === 'generate_weekly_plan') {
+    generateWeeklyMealPlan($_db, $userID);
+    $message = "Brand‑new weekly plan generated!";
+}
+}
+
+
+function getUserPreferences($_db, $userID) {
+
+    $sql = "SELECT * FROM UserPreferences WHERE userID = ?";
+    $preferences = $_db->selectOne($sql, [$userID]);
+    if (!$preferences) return null;
+
+    return [
+        'activity_level' => $preferences['activity_level'],
+        'dietaryStyle'   => $preferences['dietaryStyle'],
+        'goal'           => $preferences['goal'],
+        'allergies'      => array_filter(array_map('trim', explode(",", strtolower($preferences['allergies'] ?? '')))),
+        'dislikes'       => array_filter(array_map('trim', explode(",", strtolower($preferences['dislikes'] ?? '')))),
+        'calorie_goal'   => (int)$preferences['calorie_goal']
+    ];
+}
+
+function getAvailableFoods($_db, $allergies, $dislikes) {
+    $sql = "SELECT * FROM Foods";
+    $foods = $_db->select($sql);
+    if (!$foods) {
+        die("Database query failed.");
+    }
+
+    $availableFoods = [];
+
+    foreach ($foods as $food) {
+        $foodAllergens = array_filter(array_map('trim', explode(",", strtolower($food['allergens'] ?? ''))));
+        $foodIngredients = array_filter(array_map('trim', explode(",", strtolower($food['ingredients'] ?? ''))));
+
+        $hasAllergy = count(array_intersect($foodAllergens, $allergies)) > 0;
+        $hasDislike = count(array_intersect($foodIngredients, $dislikes)) > 0;
+
+        if (!$hasAllergy && !$hasDislike) {
+            $availableFoods[] = $food;
+        }
+    }
+
+    return $availableFoods;
+}
+
+function groupFoodsByMealSlot(array $foods) {
+    $slots = [
+        'entree' => [],
+        'side1'  => [],
+        'side2'  => [],
+        'drink'  => []
+    ];
+
+    foreach ($foods as $food) {
+        $cat = $food['category'];
+        if ($cat === 'protein') {
+            $slots['entree'][] = $food;
+        } elseif (in_array($cat, ['grain', 'vegetable', 'fruit', 'dairy'])) {
+            $slots['side1'][] = $food;
+            $slots['side2'][] = $food;
+        } elseif ($cat === 'beverage') {
+            $slots['drink'][] = $food;
+        }
+    }
+
+    return $slots;
+}
+
+function assembleMeal(array $slots, float $targetCalories, float $tolerance = 0.10, int $maxAttempts = 100) {
+    if (
+    empty($slots['entree']) || 
+    empty($slots['side1']) || 
+    empty($slots['side2']) || 
+    empty($slots['drink'])
+) {
+    return null;
+}
+
+    $minCal = $targetCalories * (1 - $tolerance);
+    $maxCal = $targetCalories * (1 + $tolerance);
+
+    for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
+        $entree = $slots['entree'][array_rand($slots['entree'])];
+        $side1 = $slots['side1'][array_rand($slots['side1'])];
+        $side2 = $slots['side2'][array_rand($slots['side2'])];
+        $drink = $slots['drink'][array_rand($slots['drink'])];
+
+        if ($side1['id'] === $side2['id']) continue;
+
+        $totalCalories = $entree['calories_per_serving'] +
+                         $side1['calories_per_serving'] +
+                         $side2['calories_per_serving'] +
+                         $drink['calories_per_serving'];
+
+        if ($totalCalories >= $minCal && $totalCalories <= $maxCal) {
+            return [
+                'entree' => $entree,
+                'side1' => $side1,
+                'side2' => $side2,
+                'drink' => $drink,
+                'total_calories' => $totalCalories
+            ];
+        }
+    }
+    return null;
+}
+
+function generateDailyMealPlan($_db, $userID) {
+    $preferences = getUserPreferences($_db, $userID);
+    if (!$preferences) return null;
+
+    $availableFoods = getAvailableFoods($_db, $preferences['allergies'], $preferences['dislikes']);
+    if (empty($availableFoods)) return null;
+
+    $slots = groupFoodsByMealSlot($availableFoods);
+    $caloriesPerMeal = $preferences['calorie_goal'] / 3;
+
+    $mealPlan = [];
+
+    $mealNames = ['breakfast', 'lunch', 'dinner'];
+
+    foreach ($mealNames as $i => $name) {
+        $meal = assembleMeal($slots, $caloriesPerMeal);
+        if ($meal === null) {
+            $mealPlan[$name] = null; // or a string error message if you prefer
+        } else {
+            $mealPlan[$name] = $meal;
+        }
+    }
+
+    return $mealPlan;
+}
+
+
+function generateWeeklyMealPlan($db, int $userID): void
+{
+    // Delete previous weekly plans for the user
+    $db->insert("DELETE FROM WeeklyPlan WHERE userID = ?", [$userID]);
+
+    $days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    $mealTypes = ['breakfast', 'lunch', 'dinner'];
+
+    foreach ($days as $day) {
+        $dailyMeals = generateDailyMealPlan($db, $userID);
+        if (!$dailyMeals) {
+            error_log("No meals generated for $day (user $userID)");
+            continue;
+        }
+
+        foreach ($mealTypes as $mealType) {
+            if (!isset($dailyMeals[$mealType])) continue;
+
+            $parts = $dailyMeals[$mealType];
+
+            $mealName = $parts['entree']['name'] . ' with ' .
+                $parts['side1']['name'] . ' & ' . $parts['side2']['name'];
+
+
+            $foodsString = "Entree: " . $parts['entree']['name'] . 
+                           ", Side1: " . $parts['side1']['name'] . 
+                           ", Side2: " . $parts['side2']['name'] . 
+                           ", Drink: " . $parts['drink']['name'];
+
+            // Insert meal into UserMeals
+            $insertMealSQL = "INSERT INTO UserMeals (userID, mealName, mealType, entreeID, side1ID, side2ID, drinkID) 
+                              VALUES (?, ?, ?, ?, ?, ?, ?)";
+            $result = $db->insert(
+                $insertMealSQL,
+                [
+                    $userID,
+                    $mealName,
+                    $mealType,
+                    $parts['entree']['id'],
+                    $parts['side1']['id'],
+                    $parts['side2']['id'],
+                    $parts['drink']['id']
+                ]
+            );
+
+            if (!$result) {
+                error_log("Failed to insert meal for $day $mealType (user $userID)");
+                continue;
+            }
+
+            $newMealID = $db->lastInsertId();
+
+            // Insert into WeeklyPlan linking user, meal, day, and meal type
+            $insertWeeklyPlanSQL = "INSERT INTO WeeklyPlan (userID, meal_id, day_of_week, meal_type)
+                                    VALUES (?, ?, ?, ?)";
+            $result2 = $db->insert($insertWeeklyPlanSQL, [$userID, $newMealID, $day, $mealType]);
+
+            if (!$result2) {
+                error_log("Failed to assign meal $newMealID to weekly plan for $day $mealType (user $userID)");
+            }
+        }
     }
 }
+
+
+
 
 // Get data
 $userMeals = $_db->select("SELECT um.*, e.name as entree_name, e.calories_per_serving as entree_calories, s1.name as side1_name, s1.calories_per_serving as side1_calories, s2.name as side2_name, s2.calories_per_serving as side2_calories, d.name as drink_name, d.calories_per_serving as drink_calories FROM UserMeals um LEFT JOIN Foods e ON um.entreeID = e.id LEFT JOIN Foods s1 ON um.side1ID = s1.id LEFT JOIN Foods s2 ON um.side2ID = s2.id LEFT JOIN Foods d ON um.drinkID = d.id WHERE um.userID = ? ORDER BY um.mealType, um.mealName", [$userID]);
@@ -41,7 +275,8 @@ $nonBeverageFoods = $_db->select("SELECT * FROM Foods WHERE category != 'beverag
 $beverages = $_db->select("SELECT * FROM Foods WHERE category = 'beverage' ORDER BY name");
 
 // Get user preferences
-$userPreferences = $_db->selectOne("SELECT * FROM UserPreferences WHERE userID = ?", [$userID]);
+$userPreferences = getUserPreferences($_db, $userID);
+
 
 ?>
 
@@ -116,6 +351,16 @@ $userPreferences = $_db->selectOne("SELECT * FROM UserPreferences WHERE userID =
             <p><strong>Height:</strong> <?= $_SESSION['height'] ?> inches | <strong>Weight:</strong> <?= $_SESSION['weight'] ?> lbs</p>
         <?php endif; ?>
     </div>
+    
+    <h1 class="text-center mb-4">🍽️ Your Weekly Meal Plan</h1>
+
+    <?php if ($message): ?>
+        <div class="alert alert-success text-center"><?= $message ?></div>
+    <?php endif; ?>
+    <?php if ($error): ?>
+        <div class="alert alert-danger text-center"><?= $error ?></div>
+    <?php endif; ?>
+
 
     <!-- User Preferences Section -->
     <div class="card preferences-card">
@@ -147,29 +392,27 @@ $userPreferences = $_db->selectOne("SELECT * FROM UserPreferences WHERE userID =
                     <h4>Daily Calorie Goal</h4>
                     <p><?= number_format($userPreferences['calorie_goal'] ?? 2000) ?></p>
                 </div>
-                <?php if ($userPreferences['dietary_preference']): ?>
-                <div class="preference-item">
-                    <div class="preference-icon">🍴</div>
-                    <h4>Dietary Preference</h4>
-                    <p><?= htmlspecialchars($userPreferences['dietary_preference']) ?></p>
-                </div>
-                <?php endif; ?>
+                
             </div>
             
-            <?php if ($userPreferences['allergies'] || $userPreferences['dislikes']): ?>
-            <div style="margin-top: 20px;">
-                <?php if ($userPreferences['allergies']): ?>
-                <div style="margin-bottom: 10px;">
-                    <strong>🚫 Allergies:</strong> <?= htmlspecialchars($userPreferences['allergies']) ?>
-                </div>
-                <?php endif; ?>
-                <?php if ($userPreferences['dislikes']): ?>
-                <div>
-                    <strong>❌ Dislikes:</strong> <?= htmlspecialchars($userPreferences['dislikes']) ?>
-                </div>
-                <?php endif; ?>
+<?php if (!empty($userPreferences['allergies']) || !empty($userPreferences['dislikes'])): ?>
+    <div style="margin-top: 20px;">
+        <?php if (!empty($userPreferences['allergies'])): ?>
+            <div style="margin-bottom: 10px;">
+                <strong>🚫 Allergies:</strong>
+                <?= htmlspecialchars(implode(", ", $userPreferences['allergies'])) ?>
             </div>
-            <?php endif; ?>
+        <?php endif; ?>
+        
+        <?php if (!empty($userPreferences['dislikes'])): ?>
+            <div>
+                <strong>❌ Dislikes:</strong>
+                <?= htmlspecialchars(implode(", ", $userPreferences['dislikes'])) ?>
+            </div>
+        <?php endif; ?>
+    </div>
+<?php endif; ?>
+
             
             <div style="text-align: center; margin-top: 20px;">
                 <a href="preferences.php" class="btn btn-secondary">Update Preferences</a>
@@ -301,35 +544,6 @@ $userPreferences = $_db->selectOne("SELECT * FROM UserPreferences WHERE userID =
 <?php
 // Weekly meal plan assignment logic
 // Handle weekly meal plan actions
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if ($_POST['action'] === 'assign_meal') {
-        $mealID = $_POST['mealID'] ?? '';
-        $day = $_POST['day'] ?? '';
-        $mealType = $_POST['mealType'] ?? '';
-
-        if (!$mealID || !$day || !$mealType) {
-            $error = "Please select a meal, day, and meal type.";
-        } else {
-            $mealCheck = $_db->selectOne("SELECT id FROM UserMeals WHERE id = ? AND userID = ?", [$mealID, $userID]);
-            if ($mealCheck) {
-                $_db->insert("DELETE FROM WeeklyPlan WHERE userID = ? AND day_of_week = ? AND meal_type = ?", [$userID, $day, $mealType]);
-                $result = $_db->insert("INSERT INTO WeeklyPlan (userID, meal_id, day_of_week, meal_type) VALUES (?, ?, ?, ?)", [$userID, $mealID, $day, $mealType]);
-                $message = $result ? "Meal assigned successfully!" : "Error assigning meal.";
-            } else {
-                $error = "Invalid meal selection.";
-            }
-        }
-    } elseif ($_POST['action'] === 'remove_meal') {
-        $planID = $_POST['planID'] ?? '';
-        if ($planID) {
-            $result = $_db->insert("DELETE FROM WeeklyPlan WHERE id = ? AND userID = ?", [$planID, $userID]);
-            $message = $result ? "Meal removed from plan!" : "Error removing meal.";
-        }
-    }
-}
-
-// Get user's saved meals
-$userMeals = $_db->select("SELECT * FROM UserMeals WHERE userID = ? ORDER BY mealType, mealName", [$userID]);
 
 // Get weekly plan
 $weeklyPlan = $_db->select("
@@ -362,6 +576,10 @@ foreach ($weeklyPlan as $item) {
 }
 ?>
 
+<form method="POST" action="mealPlanner.php" style="text-align: center; margin: 30px 0;">
+    <input type="hidden" name="action" value="generate_weekly_plan">
+    <button type="submit" class="btn btn-success">⚡ Generate Weekly Meal Plan</button>
+</form>
 
 
 <!-- Weekly Calendar UI -->
@@ -448,4 +666,4 @@ foreach ($weeklyPlan as $item) {
             <a href="<?= BASE_URL ?>admin/dashboard.php">Go to Admin Panel</a>
         <?php endif; ?>
         <a href="logout.php">Logout</a>
-    </div>
+ </div>
