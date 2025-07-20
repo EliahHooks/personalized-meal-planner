@@ -22,6 +22,21 @@ class db {
     }     
 }
 
+public function prepare($sql) {
+    return $this->pdo->prepare($sql);
+}
+
+public function query($sql, $params = []) {
+    try {
+        $this->stmt = $this->pdo->prepare($sql);
+        $this->stmt->execute($params);
+        return $this->stmt;
+    } catch (PDOException $e) {
+        echo "Query Error: " . $e->getMessage();
+        return false;
+    }
+}
+
     public function selectOne($sql, $params = []) {
     try {
         $this->stmt = $this->pdo->prepare($sql);
