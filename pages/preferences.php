@@ -1,6 +1,7 @@
     <?php
     session_start();
     require_once __DIR__ . '/../database/db.php';
+    
 
     if (!isset($_SESSION['userID'])) {
         header("Location: login.php");
@@ -12,35 +13,31 @@
         $activity = $_POST['activity_level'] ?? null;
         $style = $_POST['dietaryStyle'] ?? 'none';
         $goal = $_POST['goal'] ?? null;
-        $dietPref = $_POST['dietary_preference'] ?? '';
         $allergies = $_POST['allergies'] ?? '';
         $dislikes = $_POST['dislikes'] ?? '';
-        $meals = $_POST['meals_per_day'] ?? 3;
         $calories = $_POST['calorie_goal'] ?? 2000;
 
         $sql = "INSERT INTO UserPreferences (
                     userID, activity_level, dietaryStyle, goal,
-                    dietary_preference, allergies, dislikes,
-                    meals_per_day, calorie_goal
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   allergies, dislikes,
+                   calorie_goal
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE
                     activity_level = VALUES(activity_level),
                     dietaryStyle = VALUES(dietaryStyle),
                     goal = VALUES(goal),
-                    dietary_preference = VALUES(dietary_preference),
                     allergies = VALUES(allergies),
                     dislikes = VALUES(dislikes),
-                    meals_per_day = VALUES(meals_per_day),
                     calorie_goal = VALUES(calorie_goal)";
 
         $success = $_db->insert($sql, [
             $userID, $activity, $style, $goal,
-            $dietPref, $allergies, $dislikes,
-            $meals, $calories
+            $allergies, $dislikes,
+            $calories
         ]);
 
         if ($success) {
-            header("Location: mealPlanner.php"); // or wherever next
+            header("Location: mealPlanner.php");
             exit;
         } else {
             $error = "Something went wrong while saving preferences.";
@@ -91,17 +88,11 @@
         <option value="maintain">Maintain</option>
       </select><br><br>
 
-      <h2>Dietary Preferences</h2>
-      <input type="text" name="dietary_preference" placeholder="e.g., halal, kosher"><br><br>
-
       <h2>Allergies</h2>
       <textarea name="allergies" rows="3" cols="40" placeholder="e.g., peanuts, shellfish"></textarea><br><br>
 
       <h2>Disliked Foods</h2>
       <textarea name="dislikes" rows="3" cols="40" placeholder="e.g., broccoli, tofu"></textarea><br><br>
-
-      <h2>Meals Per Day</h2>
-      <input type="number" name="meals_per_day" min="1" max="6" value="3"><br><br>
 
       <h2>Daily Calorie Goal</h2>
       <input type="number" name="calorie_goal" min="1000" max="5000" step="50" value="2000"><br><br>
