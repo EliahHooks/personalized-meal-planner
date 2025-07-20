@@ -4,8 +4,7 @@ require_once __DIR__ . '/../database/db.php';
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-// Optional: remove this unless you're actually using output buffering for layout/redirect control
-// ob_start();
+
 
 $result = false;
 $errorMessage = '';
