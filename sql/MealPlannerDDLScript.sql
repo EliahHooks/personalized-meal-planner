@@ -25,10 +25,8 @@ CREATE TABLE UserPreferences (
     activity_level ENUM('low', 'medium', 'high'),
     dietaryStyle ENUM('none', 'vegetarian', 'vegan', 'keto', 'pescatarian') DEFAULT 'none',  
     goal ENUM('lose', 'gain', 'maintain'),
-    dietary_preference VARCHAR(50),
     allergies TEXT,
     dislikes TEXT,
-    meals_per_day INT DEFAULT 3,
     calorie_goal INT DEFAULT 2000,
     FOREIGN KEY (userID) REFERENCES Users(UserID) ON DELETE CASCADE
 );
@@ -36,7 +34,7 @@ CREATE TABLE UserPreferences (
 CREATE TABLE Foods (
   id INT PRIMARY KEY AUTO_INCREMENT,
 
-  name VARCHAR(50) NOT NULL,
+  name VARCHAR(100) NOT NULL,
 
   category ENUM('protein', 'grain', 'vegetable', 'fruit', 'dairy', 'beverage') NOT NULL,
 
@@ -52,15 +50,22 @@ CREATE TABLE Foods (
   fat_grams DECIMAL(5,2),
   fiber_grams DECIMAL(5,2),
 
+  dietary_tags VARCHAR(255),             -- e.g., 'vegan,gluten-free,keto'
+  allergens VARCHAR(255),                -- e.g., 'dairy,nuts,soy'
+  ingredients TEXT,                      -- e.g., 'milk, cultures, vanilla extract'
+
   INDEX idx_category (category),
-  INDEX idx_nutrition (protein_grams, sodium_mg, sugar_grams)
+  INDEX idx_nutrition (protein_grams, sodium_mg, sugar_grams),
+  INDEX idx_tags (dietary_tags),
+  INDEX idx_allergens (allergens)
 );
+
 
 CREATE TABLE UserMeals ( 
   id INT PRIMARY KEY AUTO_INCREMENT,  
 
   userID INT NOT NULL,  
-  mealName VARCHAR(50),  
+  mealName VARCHAR(225),  
   mealType ENUM('breakfast', 'lunch', 'dinner') NOT NULL,  
   planDate DATE,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
