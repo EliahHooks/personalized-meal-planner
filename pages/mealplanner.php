@@ -89,7 +89,7 @@ function getUserPreferences($_db, $userID) {
     ];
 }
 
-function getAvailableFoods($_db, $allergies, $dislikes) {
+function getAvailableFoods($_db, $allergies, $dislikes, $dietaryStyle = null) {
     $sql = "SELECT * FROM Foods";
     $foods = $_db->select($sql);
     if (!$foods) {
@@ -101,12 +101,148 @@ function getAvailableFoods($_db, $allergies, $dislikes) {
     foreach ($foods as $food) {
         $foodAllergens = array_filter(array_map('trim', explode(",", strtolower($food['allergens'] ?? ''))));
         $foodIngredients = array_filter(array_map('trim', explode(",", strtolower($food['ingredients'] ?? ''))));
+        $foodDietaryTags = array_filter(array_map('trim', explode(",", strtolower($food['dietary_tags'] ?? ''))));
+        $foodName = strtolower(trim($food['name'] ?? ''));
+        $foodCategory = strtolower(trim($food['category'] ?? ''));
 
-        $hasAllergy = count(array_intersect($foodAllergens, $allergies)) > 0;
-        $hasDislike = count(array_intersect($foodIngredients, $dislikes)) > 0;
+        // Check allergies in ingredients, name, and category
+        $hasAllergy = false;
+        
+        // Check allergens field
+        if (count(array_intersect($foodAllergens, $allergies)) > 0) {
+            $hasAllergy = true;
+        }
+        
+        // Check ingredients for allergies
+        if (!$hasAllergy && count(array_intersect($foodIngredients, $allergies)) > 0) {
+            $hasAllergy = true;
+        }
+        
+        // Check food name for allergies
+        if (!$hasAllergy) {
+            foreach ($allergies as $allergy) {
+                if (strpos($foodName, $allergy) !== false) {
+                    $hasAllergy = true;
+                    break;
+                }
+            }
+        }
+        
+        // Check food category for allergies
+        if (!$hasAllergy) {
+            foreach ($allergies as $allergy) {
+                if (strpos($foodCategory, $allergy) !== false) {
+                    $hasAllergy = true;
+                    break;
+                }
+            }
+        }
 
-        if (!$hasAllergy && !$hasDislike) {
+        // Check dislikes in ingredients, name, and category
+        $hasDislike = false;
+        
+        // Check ingredients for dislikes
+        if (count(array_intersect($foodIngredients, $dislikes)) > 0) {
+            $hasDislike = true;
+        }
+        
+        // Check food name for dislikes
+        if (!$hasDislike) {
+            foreach ($dislikes as $dislike) {
+                if (strpos($foodName, $dislike) !== false) {
+                    $hasDislike = true;
+                    break;
+                }
+            }
+        }
+        
+        // Check food category for dislikes
+        if (!$hasDislike) {
+            foreach ($dislikes as $dislike) {
+                if (strpos($foodCategory, $dislike) !== false) {
+                    $hasDislike = true;
+                    break;
+                }
+            }
+        }
+
+        // Skip if has allergy or dislike
+        if ($hasAllergy || $hasDislike) {
+            continue;
+        }
+
+        // Apply dietary style filtering - FIXED VERSION
+        $dietaryMatch = true;
+        if ($dietaryStyle && !empty($dietaryStyle)) {
+            switch (strtolower(trim($dietaryStyle))) {
+                case 'vegan':
+                    $dietaryMatch = in_array('vegan', $foodDietaryTags);
+                    break;
+                case 'vegetarian':
+                    $dietaryMatch = in_array('vegan', $foodDietaryTags) || in_array('vegetarian', $foodDietaryTags);
+                    break;
+                case 'keto':
+                    // For keto, we need foods that are keto-friendly OR have low carbs
+                    $dietaryMatch = in_array('keto', $foodDietaryTags) || 
+                                   in_array('low-carb', $foodDietaryTags) ||
+                                   in_array('ketogenic', $foodDietaryTags);
+                    
+                    // Additional keto logic: exclude high-carb categories and foods
+                    $highCarbCategories = ['grain', 'fruit']; // Typically high in carbs
+                    $lowCarbCategories = ['protein', 'dairy', 'vegetable', 'beverage'];
+                    
+                    // If no keto tags but is a typically low-carb category, allow it
+                    if (!$dietaryMatch && in_array(strtolower($food['category']), $lowCarbCategories)) {
+                        // Additional check for specific high-carb foods even in low-carb categories
+                        $highCarbFoods = ['potato', 'sweet potato', 'corn', 'rice', 'pasta', 'bread', 'banana', 'apple', 'orange'];
+                        $isHighCarbFood = false;
+                        
+                        foreach ($highCarbFoods as $highCarbFood) {
+                            if (strpos($foodName, $highCarbFood) !== false) {
+                                $isHighCarbFood = true;
+                                break;
+                            }
+                        }
+                        
+                        if (!$isHighCarbFood) {
+                            $dietaryMatch = true;
+                        }
+                    }
+                    
+                    // Exclude obvious high-carb categories unless specifically tagged as keto
+                    if (in_array(strtolower($food['category']), $highCarbCategories) && 
+                        !in_array('keto', $foodDietaryTags) && 
+                        !in_array('low-carb', $foodDietaryTags)) {
+                        $dietaryMatch = false;
+                    }
+                    break;
+                case 'pescatarian':
+                    $dietaryMatch = in_array('vegan', $foodDietaryTags) || 
+                                   in_array('vegetarian', $foodDietaryTags) || 
+                                   in_array('pescatarian', $foodDietaryTags);
+                    break;
+                case 'paleo':
+                    $dietaryMatch = in_array('paleo', $foodDietaryTags);
+                    break;
+                case 'mediterranean':
+                    $dietaryMatch = in_array('mediterranean', $foodDietaryTags);
+                    break;
+                default:
+                    $dietaryMatch = true; // No dietary restriction or unrecognized diet
+                    break;
+            }
+        }
+
+        if ($dietaryMatch) {
             $availableFoods[] = $food;
+        }
+    }
+
+    // Debug: Log available foods for keto
+    if ($dietaryStyle && strtolower(trim($dietaryStyle)) === 'keto') {
+        error_log("Available keto foods: " . count($availableFoods));
+        foreach ($availableFoods as $food) {
+            error_log("Keto food: " . $food['name'] . " (Category: " . $food['category'] . ", Tags: " . $food['dietary_tags'] . ")");
         }
     }
 
@@ -122,7 +258,7 @@ function groupFoodsByMealSlot(array $foods) {
     ];
 
     foreach ($foods as $food) {
-        $cat = $food['category'];
+        $cat = strtolower($food['category']);
         if ($cat === 'protein') {
             $slots['entree'][] = $food;
         } elseif (in_array($cat, ['grain', 'vegetable', 'fruit', 'dairy'])) {
@@ -136,15 +272,28 @@ function groupFoodsByMealSlot(array $foods) {
     return $slots;
 }
 
-function assembleMeal(array $slots, float $targetCalories, float $tolerance = 0.10, int $maxAttempts = 100) {
+function assembleMeal(array $slots, float $targetCalories, float $tolerance = 0.15, int $maxAttempts = 150) {
+    // Check if we have foods in all required slots
     if (
-    empty($slots['entree']) || 
-    empty($slots['side1']) || 
-    empty($slots['side2']) || 
-    empty($slots['drink'])
-) {
-    return null;
-}
+        empty($slots['entree']) || 
+        empty($slots['side1']) || 
+        empty($slots['side2']) || 
+        empty($slots['drink'])
+    ) {
+        // Log which slots are empty for debugging
+        $emptySlots = [];
+        if (empty($slots['entree'])) $emptySlots[] = 'entree';
+        if (empty($slots['side1'])) $emptySlots[] = 'side1';
+        if (empty($slots['side2'])) $emptySlots[] = 'side2';
+        if (empty($slots['drink'])) $emptySlots[] = 'drink';
+        
+        error_log("Cannot assemble meal - empty slots: " . implode(', ', $emptySlots));
+        error_log("Slot counts - Entree: " . count($slots['entree']) . 
+                  ", Side1: " . count($slots['side1']) . 
+                  ", Side2: " . count($slots['side2']) . 
+                  ", Drink: " . count($slots['drink']));
+        return null;
+    }
 
     $minCal = $targetCalories * (1 - $tolerance);
     $maxCal = $targetCalories * (1 + $tolerance);
@@ -155,12 +304,13 @@ function assembleMeal(array $slots, float $targetCalories, float $tolerance = 0.
         $side2 = $slots['side2'][array_rand($slots['side2'])];
         $drink = $slots['drink'][array_rand($slots['drink'])];
 
+        // Ensure side dishes are different
         if ($side1['id'] === $side2['id']) continue;
 
-        $totalCalories = $entree['calories_per_serving'] +
-                         $side1['calories_per_serving'] +
-                         $side2['calories_per_serving'] +
-                         $drink['calories_per_serving'];
+        $totalCalories = ($entree['calories_per_serving'] ?? 0) +
+                         ($side1['calories_per_serving'] ?? 0) +
+                         ($side2['calories_per_serving'] ?? 0) +
+                         ($drink['calories_per_serving'] ?? 0);
 
         if ($totalCalories >= $minCal && $totalCalories <= $maxCal) {
             return [
@@ -172,35 +322,47 @@ function assembleMeal(array $slots, float $targetCalories, float $tolerance = 0.
             ];
         }
     }
+    
+    error_log("Could not assemble meal within calorie range $minCal-$maxCal after $maxAttempts attempts");
     return null;
 }
 
 function generateDailyMealPlan($_db, $userID) {
     $preferences = getUserPreferences($_db, $userID);
-    if (!$preferences) return null;
+    if (!$preferences) {
+        error_log("No preferences found for user $userID");
+        return null;
+    }
 
-    $availableFoods = getAvailableFoods($_db, $preferences['allergies'], $preferences['dislikes']);
-    if (empty($availableFoods)) return null;
+    error_log("Generating meal plan for user $userID with dietary style: " . ($preferences['dietaryStyle'] ?? 'none'));
+
+    $availableFoods = getAvailableFoods($_db, $preferences['allergies'], $preferences['dislikes'], $preferences['dietaryStyle']);
+    if (empty($availableFoods)) {
+        error_log("No available foods found for user $userID with dietary style: " . ($preferences['dietaryStyle'] ?? 'none'));
+        return null;
+    }
+
+    error_log("Found " . count($availableFoods) . " available foods for user $userID");
 
     $slots = groupFoodsByMealSlot($availableFoods);
     $caloriesPerMeal = $preferences['calorie_goal'] / 3;
 
     $mealPlan = [];
-
     $mealNames = ['breakfast', 'lunch', 'dinner'];
 
-    foreach ($mealNames as $i => $name) {
+    foreach ($mealNames as $name) {
         $meal = assembleMeal($slots, $caloriesPerMeal);
         if ($meal === null) {
-            $mealPlan[$name] = null; // or a string error message if you prefer
+            error_log("Could not assemble $name meal for user $userID");
+            $mealPlan[$name] = null;
         } else {
+            error_log("Successfully assembled $name meal for user $userID");
             $mealPlan[$name] = $meal;
         }
     }
 
     return $mealPlan;
 }
-
 
 function generateWeeklyMealPlan($db, int $userID): void
 {
@@ -218,18 +380,15 @@ function generateWeeklyMealPlan($db, int $userID): void
         }
 
         foreach ($mealTypes as $mealType) {
-            if (!isset($dailyMeals[$mealType])) continue;
+            if (!isset($dailyMeals[$mealType]) || $dailyMeals[$mealType] === null) {
+                error_log("No $mealType meal generated for $day (user $userID)");
+                continue;
+            }
 
             $parts = $dailyMeals[$mealType];
 
             $mealName = $parts['entree']['name'] . ' with ' .
                 $parts['side1']['name'] . ' & ' . $parts['side2']['name'];
-
-
-            $foodsString = "Entree: " . $parts['entree']['name'] . 
-                           ", Side1: " . $parts['side1']['name'] . 
-                           ", Side2: " . $parts['side2']['name'] . 
-                           ", Drink: " . $parts['drink']['name'];
 
             // Insert meal into UserMeals
             $insertMealSQL = "INSERT INTO UserMeals (userID, mealName, mealType, entreeID, side1ID, side2ID, drinkID) 
@@ -261,13 +420,12 @@ function generateWeeklyMealPlan($db, int $userID): void
 
             if (!$result2) {
                 error_log("Failed to assign meal $newMealID to weekly plan for $day $mealType (user $userID)");
+            } else {
+                error_log("Successfully created and assigned $mealType meal for $day (user $userID)");
             }
         }
     }
 }
-
-
-
 
 // Get data
 $userMeals = $_db->select("SELECT um.*, e.name as entree_name, e.calories_per_serving as entree_calories, s1.name as side1_name, s1.calories_per_serving as side1_calories, s2.name as side2_name, s2.calories_per_serving as side2_calories, d.name as drink_name, d.calories_per_serving as drink_calories FROM UserMeals um LEFT JOIN Foods e ON um.entreeID = e.id LEFT JOIN Foods s1 ON um.side1ID = s1.id LEFT JOIN Foods s2 ON um.side2ID = s2.id LEFT JOIN Foods d ON um.drinkID = d.id WHERE um.userID = ? ORDER BY um.mealType, um.mealName", [$userID]);
@@ -276,7 +434,6 @@ $beverages = $_db->select("SELECT * FROM Foods WHERE category = 'beverage' ORDER
 
 // Get user preferences
 $userPreferences = getUserPreferences($_db, $userID);
-
 
 ?>
 
@@ -428,7 +585,7 @@ $userPreferences = getUserPreferences($_db, $userID);
     <?php if ($message): ?><div class="message success"><?= $message ?></div><?php endif; ?>
     <?php if ($error): ?><div class="message error"><?= $error ?></div><?php endif; ?>
     
-    <div class="card">
+     <div class="card">
         <h3>🍽️ Add New Meal</h3>
         <form method="POST">
             <input type="hidden" name="action" value="add_meal">
