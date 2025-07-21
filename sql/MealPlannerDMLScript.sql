@@ -206,3 +206,29 @@ INSERT INTO WeeklyPlan (userID, meal_id, day_of_week, meal_type) VALUES
 (4, 8, 'Thursday', 'lunch'),
 (5, 9, 'Friday', 'breakfast'),
 (5, 10, 'Friday', 'dinner');
+
+
+-- Mark plant-based proteins as vegan
+UPDATE Foods SET dietary_tags = 'vegan,vegetarian,keto' WHERE name LIKE '%tofu%' OR name LIKE '%tempeh%';
+
+-- Mark dairy products as vegetarian only
+UPDATE Foods SET dietary_tags = 'vegetarian' WHERE category = 'dairy';
+
+-- Mark meat products with no dietary tags (empty means omnivore)
+UPDATE Foods SET dietary_tags = '' WHERE category = 'protein' AND (name LIKE '%chicken%' OR name LIKE '%beef%' OR name LIKE '%pork%');
+
+-- Mark fish as pescatarian
+UPDATE Foods SET dietary_tags = 'pescatarian' WHERE name LIKE '%fish%' OR name LIKE '%salmon%' OR name LIKE '%tuna%' OR name LIKE '%shrimp%';
+
+-- Mark vegetables and fruits as vegan
+UPDATE Foods SET dietary_tags = 'vegan,vegetarian,keto' WHERE category IN ('vegetable', 'fruit');
+
+-- Mark grains (adjust keto tag as needed - most grains are not keto)
+UPDATE Foods SET dietary_tags = 'vegan,vegetarian' WHERE category = 'grain';
+
+-- Mark low-carb vegetables as keto-friendly
+UPDATE Foods SET dietary_tags = 'vegan,vegetarian,keto' WHERE name IN ('spinach', 'broccoli', 'cauliflower', 'kale', 'lettuce', 'cucumber', 'zucchini');
+
+-- Mark beverages appropriately
+UPDATE Foods SET dietary_tags = 'vegan,vegetarian,keto' WHERE category = 'beverage' AND name IN ('water', 'black coffee', 'tea');
+UPDATE Foods SET dietary_tags = 'vegetarian' WHERE category = 'beverage' AND name LIKE '%milk%';
