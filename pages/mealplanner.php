@@ -818,9 +818,10 @@ foreach ($weeklyPlan as $item) {
     <?php endif; ?>
 </div>
 
+
  <div class="admin-link">
         <?php if ($_SESSION['role'] === 'admin'): ?>
             <a href="<?= BASE_URL ?>admin/dashboard.php">Go to Admin Panel</a>
         <?php endif; ?>
         <a href="logout.php">Logout</a>
- </div>
+ </div> 
