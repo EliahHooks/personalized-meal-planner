@@ -232,3 +232,5 @@ UPDATE Foods SET dietary_tags = 'vegan,vegetarian,keto' WHERE name IN ('spinach'
 -- Mark beverages appropriately
 UPDATE Foods SET dietary_tags = 'vegan,vegetarian,keto' WHERE category = 'beverage' AND name IN ('water', 'black coffee', 'tea');
 UPDATE Foods SET dietary_tags = 'vegetarian' WHERE category = 'beverage' AND name LIKE '%milk%';
+
+-- Foods table
